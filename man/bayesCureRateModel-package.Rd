@@ -76,7 +76,7 @@ Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for
 \examples{
 # TOY EXAMPLE (very small numbers... only for CRAN check purposes)
 # simulate toy data 
-	set.seed(1)
+	set.seed(10)
 	n = 4
 	stat = rbinom(n, size = 1, prob = 0.5)
 	x <- cbind(1, matrix(rnorm(n), n, 1))
@@ -108,4 +108,5 @@ Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for
 		mcmc_cycles = 10)
 	summary2 <- summary(fit2)
 }
+
 }		

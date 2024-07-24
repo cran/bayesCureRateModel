@@ -8,7 +8,7 @@ Runs a Metropolis Coupled MCMC (MC\eqn{^3}) sampler in order to estimate the joi
 }
 \usage{
 cure_rate_MC3(y, X, Censoring_status, nChains = 12, mcmc_cycles = 15000, 
-	alpha = NULL,nCores = 8, sweep = 5, mu_g = 1, s2_g = 1, 
+	alpha = NULL,nCores = 1, sweep = 5, mu_g = 1, s2_g = 1, 
 	a_l = 2.1, b_l = 1.1, mu_b = rep(0, dim(X)[2]), 
 	Sigma = 100 * diag(dim(X)[2]), g_prop_sd = 0.045, 
 	lambda_prop_scale = 0.03, b_prop_sd = rep(0.022, dim(X)[2]), 
@@ -38,7 +38,7 @@ Length of the generated MCMC sample. Default value: 15000. Note that each MCMC c
 A decreasing sequence in \eqn{[1,0)} of \code{nChains} temperatures (or heat values). The first value should always be equal to 1, which corresponds to the target posterior distribution (that is, the first chain). 
 }
   \item{nCores}{
-The number of cores used for parallel processing.
+The number of cores used for parallel processing. In case where \code{nCores} > 1, the \code{nChains} will be processed in parallel using \code{nCores} cores. This may speed up significantly the run-time of the algorithm in Linux or macOS, but it is not suggested in Windows. 
 }
   \item{sweep}{
 The number of usual MCMC iterations per MCMC cycle. Default value: 10.
@@ -128,6 +128,7 @@ An object of class \code{bayesCureModel}, i.e. a list with the following entries
 \item{log_posterior}{the logarithm of the posterior distribution, up to a normalizing constant.}
 \item{map_estimate}{The Maximum A Posterior estimate of parameters}
 \item{BIC}{Bayesian Information Criterion.}
+\item{AIC}{Akaike Information Criterion.}
 }
 \references{
 Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for event history data. arXiv:2310.06926 
@@ -143,7 +144,7 @@ The core function is \code{\link{cure_rate_mcmc}}.
 }
 \examples{
 # simulate toy data just for cran-check purposes        
-        set.seed(1)
+	set.seed(10)
         n = 4
         stat = rbinom(n, size = 1, prob = 0.5)
         x <- cbind(1, matrix(rnorm(2*n), n, 2))

@@ -89,5 +89,6 @@ Panagiotis Papastamoulis
 		nChains = 2, nCores = 1, 
 		mcmc_cycles = 3, sweep = 2)
 	mySummary <- summary(fit1, burn = 0)
+
 }
 

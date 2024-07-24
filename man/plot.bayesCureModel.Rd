@@ -9,7 +9,7 @@ Plot method
 \usage{
 \method{plot}{bayesCureModel}(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, 
 	K_gamma = 5, plot_graphs = TRUE, bw = "nrd0", what = NULL, p_cured_output = NULL,  
-	index_of_main_mode = NULL,...)
+	index_of_main_mode = NULL, draw_legend = TRUE,...)
 }
 \arguments{
   \item{x}{
@@ -34,13 +34,17 @@ Boolean, if FALSE only HDIs are computed.
 bandwidth
 }
   \item{what}{
-	Integer indicating which parameter should be plotted. If set to \code{NULL} (default), all parameters are plotted one by one. If set to \code{'cured_prob'} the estimated cured probability is plotted, conditional on a set of covariates defined in the \code{p_cured_output} argument. 
+  	Integer or a character string with possible values equal to \code{'cured_prob'} or \code{'survival'}.
+	An integer entry indicates which parameter should be plotted. If set to \code{NULL} (default), all parameters are plotted one by one. If set to \code{'cured_prob'} or \code{'survival'} the estimated cured probability or survival function is plotted, conditional on a set of covariates defined in the \code{p_cured_output} argument. 
 }
   \item{p_cured_output}{
-	Optional argument (list) which is required only when \code{what = 'cured_prob'}. It is returned by the \code{summary.bayesCureRateModel} function.  
+	Optional argument (list) which is required only when \code{what = 'cured_prob'} or \code{what = 'survival'}. It is returned by the \code{summary.bayesCureRateModel} function.  
 }
   \item{index_of_main_mode}{
 If NULL (default), all modes are plotted. Otherwise, it is a subset of the retained MCMC iterations in order to identify the main mode of the posterior distribution, as returned by the \code{index_of_main_mode} value of the \code{summary.bayesCureRateModel} function. 
+}
+  \item{draw_legend}{
+	Boolean. If TRUE (default), a legend is plotted in the case where \code{what = 'survival'} or \code{what = 'cured_prob'}.  
 }
 \item{...}{
         arguments passed by other methods.

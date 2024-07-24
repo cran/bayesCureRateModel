@@ -1063,7 +1063,7 @@ cure_rate_mcmc <- function( y, X, Censoring_status,  m, alpha = 1,
 cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12, 
 				mcmc_cycles = 15000, 
 				alpha = NULL, 
-				nCores = 8, 
+				nCores = 1, 
 				sweep = 5,
 				mu_g = 1, s2_g = 1, a_l = 2.1, b_l = 1.1, 
 				mu_b = rep(0,dim(X)[2]), Sigma = 100*diag(dim(X)[2]),
@@ -1081,7 +1081,13 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 					single_MH_in_f = 0.2
 					){
 	X <- as.matrix(X)
-
+	
+	if( .Platform$OS.type == 'windows' && nCores > 1){
+		cat('   [WARNING]: parallelization is not suggested in Windows.', '\n')
+		cat('              Consider setting nCores = 1.', '\n')
+	}
+	
+	
 #	specify default priors per distribution family
 	if(is.null(promotion_time$prior_parameters)){
 		if(promotion_time$distribution == 'exponential'){
@@ -1155,7 +1161,16 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 		
 	}
 	if(is.null(alpha)){
-		alpha <- 1/1.001^{(1:nChains)^3 - 1}
+		if(nChains < 5){
+			alpha <- 1/1.001^{(1:nChains)^5 - 1}
+		}else{	
+			if(nChains < 9){
+				alpha <- 1/1.001^{(1:nChains)^3.5 - 1}
+			}else{
+				alpha <- 1/1.001^{(1:nChains)^3 - 1}
+			}
+		}
+
 		if(verbose){
 		cat("Default (inverse) temperatures: ", "\n")
 		print(alpha)
@@ -1361,15 +1376,21 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 
 		# initialization
 		cycle <- 1
+
+
+#                cl  <- makeCluster(nCores, type = "PSOCK")
+#		clusterCall(cl, function(){library('bayesCureRateModel')})
+ #               registerDoParallel(cl)
+		requiredVars <- c('y', 'promotion_time_all','X', 'cure_rate_mcmc', 'Censoring_status', 'sweep', 
+				'mu_g', 's2_g', 'a_l', 'b_l',  'mu_b',
+				'Sigma', 'alpha', 'g_prop_sd', 'lambda_prop_scale', 'b_prop_sd',
+				'tau_mala', 'mala', 'single_MH_in_f', 'log_weibull', 'complete_log_likelihood_general')
+		if(nCores > 1){
 		registerDoParallel(nCores)
-		parLoop <- foreach(chain_iter = 1:nChains #, .export = ls(envir = globalenv())
+		parLoop <- foreach(chain_iter = 1:nChains , .export = requiredVars
 		) %dopar% {
-#			if(chain_iter == 1){perform_mala = mala}else{
-#				if(alpha[chain_iter] == 1){
-#					perform_mala = mala
-#				}else{perform_mala = 0}
-#			}
-			mcmc_chain <- cure_rate_mcmc(  y, X, Censoring_status,  
+
+			mcmc_chain <- cure_rate_mcmc(  y = y, X = X, Censoring_status = Censoring_status,   
 				                m = sweep, 
 						mu_g = mu_g, s2_g = s2_g, a_l = a_l, b_l = b_l, 
 						promotion_time = promotion_time_all[[chain_iter]],
@@ -1381,7 +1402,23 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 				                tau_mala = tau_mala, mala = mala, single_MH_in_f = single_MH_in_f)
 						
 		}
+#		stopCluster(cl)
 		stopImplicitCluster()
+		}else{
+			parLoop <- vector('list', length = nChains)
+			for(chain_iter in 1:nChains){
+				parLoop[[chain_iter]] <- cure_rate_mcmc(  y = y, X = X, Censoring_status = Censoring_status,   
+				                m = sweep, 
+						mu_g = mu_g, s2_g = s2_g, a_l = a_l, b_l = b_l, 
+						promotion_time = promotion_time_all[[chain_iter]],
+						mu_b = mu_b, Sigma = Sigma,
+				                alpha = alpha[chain_iter],
+				                g_prop_sd = g_prop_sd[chain_iter], 
+				                lambda_prop_scale = lambda_prop_scale[chain_iter], 
+				                b_prop_sd = b_prop_sd[chain_iter,], plot = FALSE, 
+				                tau_mala = tau_mala, mala = mala, single_MH_in_f = single_MH_in_f)
+			}
+		}
 		for(chain_iter in 1:nChains){
 			parallel_mcmc_samples[1, ,chain_iter] <- c(parLoop[[chain_iter]]$mcmc_sample[sweep,], 
 										parLoop[[chain_iter]]$latent_status_censored[sweep,])
@@ -1389,6 +1426,13 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 			all_cll_values[chain_iter,cycle] <- parLoop[[chain_iter]]$complete_log_likelihood[sweep]
 		}
 		cllValues[1] <- parLoop[[1]]$complete_log_likelihood[sweep]
+
+		requiredVars <- c('y', 'X', 'cure_rate_mcmc', 'Censoring_status', 'sweep', 
+				'mu_g', 's2_g', 'a_l', 'b_l', 'promotion_time_all', 'mu_b',
+				'Sigma', 'alpha', 'g_prop_sd', 'lambda_prop_scale', 'b_prop_sd',
+				'tau_mala', 'mala', 'single_MH_in_f', 'parallel_mcmc_samples',
+				'nPars',
+				'log_weibull', 'complete_log_likelihood_general')
 
 		for(cycle in 2:mcmc_cycles){
 
@@ -1441,31 +1485,51 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 		 	}
 
 		 	# run mcmc for each chain now for sweep iterations, initialized by the previous values.
-			registerDoParallel(nCores)
-			parLoop <- foreach(chain_iter = 1:nChains#, .export = ls(envir = globalenv())
-			) %dopar% {
-				initialValues <-  as.list(parallel_mcmc_samples[1, 1:nPars,chain_iter])
-				initialValues[["I_sim_D0"]] <- parallel_mcmc_samples[1, -(1:nPars),chain_iter]
-#				if(chain_iter == 1){perform_mala = mala}else{
-#					if(alpha[chain_iter] == 1){
-#						perform_mala = mala
-#					}else{perform_mala = 0}
-#				}
+		
+#		        cl  <- makeCluster(nCores, type = "PSOCK")
+#			clusterCall(cl, function(){library('bayesCureRateModel')})		        
+#		        registerDoParallel(cl)
+			if(nCores > 1){
+				registerDoParallel(nCores)
+				parLoop <- foreach(chain_iter = 1:nChains, .export = requiredVars 
+				) %dopar% {
+					initialValues <-  as.list(parallel_mcmc_samples[1, 1:nPars,chain_iter])
+					initialValues[["I_sim_D0"]] <- parallel_mcmc_samples[1, -(1:nPars),chain_iter]
+					
+					mcmc_chain <- cure_rate_mcmc(  y, X, Censoring_status,  
+								m = sweep, 
+								alpha = alpha[chain_iter],
+								mu_g = mu_g, s2_g = s2_g, a_l = a_l, b_l = b_l, 
+								promotion_time = promotion_time_all[[chain_iter]],
+								mu_b = mu_b, Sigma = Sigma,
+								g_prop_sd = g_prop_sd[chain_iter], 
+								lambda_prop_scale = lambda_prop_scale[chain_iter], 
+								b_prop_sd = b_prop_sd[chain_iter,], plot = FALSE,
+								initialValues = initialValues, 
+								tau_mala = tau_mala, mala = mala, single_MH_in_f = single_MH_in_f)
+								
+				}
+	#			stopCluster(cl)
+				stopImplicitCluster()
+			}else{
+				for(chain_iter in 1:nChains){
+					initialValues <-  as.list(parallel_mcmc_samples[1, 1:nPars,chain_iter])
+					initialValues[["I_sim_D0"]] <- parallel_mcmc_samples[1, -(1:nPars),chain_iter]
+					
+					parLoop[[chain_iter]] <- cure_rate_mcmc(  y, X, Censoring_status,  
+								m = sweep, 
+								alpha = alpha[chain_iter],
+								mu_g = mu_g, s2_g = s2_g, a_l = a_l, b_l = b_l, 
+								promotion_time = promotion_time_all[[chain_iter]],
+								mu_b = mu_b, Sigma = Sigma,
+								g_prop_sd = g_prop_sd[chain_iter], 
+								lambda_prop_scale = lambda_prop_scale[chain_iter], 
+								b_prop_sd = b_prop_sd[chain_iter,], plot = FALSE,
+								initialValues = initialValues, 
+								tau_mala = tau_mala, mala = mala, single_MH_in_f = single_MH_in_f)
 				
-				mcmc_chain <- cure_rate_mcmc(  y, X, Censoring_status,  
-						        m = sweep, 
-						        alpha = alpha[chain_iter],
-							mu_g = mu_g, s2_g = s2_g, a_l = a_l, b_l = b_l, 
-							promotion_time = promotion_time_all[[chain_iter]],
-							mu_b = mu_b, Sigma = Sigma,
-						        g_prop_sd = g_prop_sd[chain_iter], 
-						        lambda_prop_scale = lambda_prop_scale[chain_iter], 
-						        b_prop_sd = b_prop_sd[chain_iter,], plot = FALSE,
-						        initialValues = initialValues, 
-						        tau_mala = tau_mala, mala = mala, single_MH_in_f = single_MH_in_f)
-							
+				}
 			}
-			stopImplicitCluster()
  			for(chain_iter in 1:nChains){
 				parallel_mcmc_samples[1, ,chain_iter] <- c(parLoop[[chain_iter]]$mcmc_sample[sweep,], 
 											parLoop[[chain_iter]]$latent_status_censored[sweep,])
@@ -1532,7 +1596,8 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 
 
 		}
-		result <- vector("list", length = 9)
+		result <- vector("list", length = 10)
+#		stopImplicitCluster()
 		if(promotion_time$distribution == 'gamma_mixture'){
 		# get mixing proportions
 			K = promotion_time$K
@@ -1672,6 +1737,7 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 	n <- dim(X)[1]
 	n_parameters <- dim(X)[2] + 2 + n_pars_f
 	BIC <- -2 * max(logL, na.rm = TRUE) + n_parameters * log(n)
+	AIC <- -2 * max(logL, na.rm = TRUE) + n_parameters * 2
 	map_index <- which.max(logP)
 	map_estimate <- result[[1]][map_index, ]
 #        names(map_estimate) <- unlist(lapply(strsplit(names(map_estimate), split = '_'), function(x)x[1]))
@@ -1680,8 +1746,9 @@ cure_rate_MC3 <- function( y, X, Censoring_status, nChains = 12,
 #	colnames(result[[1]]) <- names(map_estimate)
 	result[[8]] <- map_estimate
 	result[[9]] <- BIC
+	result[[10]] <- AIC
 #####################################################################################
-	 	names(result) <- c("mcmc_sample", "latent_status_censored", "complete_log_likelihood","swap_accept_rate",'all_cll_values', 'input_data_and_model_prior', 'log_posterior', 'map_estimate', 'BIC')
+	 	names(result) <- c("mcmc_sample", "latent_status_censored", "complete_log_likelihood","swap_accept_rate",'all_cll_values', 'input_data_and_model_prior', 'log_posterior', 'map_estimate', 'BIC', 'AIC')
 	 	class(result) <- c('list', 'bayesCureModel')
 	 	return(result)
 }
@@ -1838,8 +1905,8 @@ summary.bayesCureModel <- function(object, burn = NULL, gamma_mix = TRUE, K_gamm
 	}else{
 		tau_values = seq(min(yRange), max(yRange), length = 100)
 	}
-	p_cured_given_tau <- array(NA, dim = c(length(tau_values), nLevels))
-	p_cured_given_tau_values <- array(data = 0, dim = c(length(tau_values), dim(retained_mcmc)[1], nLevels))
+	S_p <- p_cured_given_tau <- array(NA, dim = c(length(tau_values), nLevels))
+	S_p_values <- p_cured_given_tau_values <- array(data = 0, dim = c(length(tau_values), dim(retained_mcmc)[1], nLevels))
 
 
 
@@ -1904,15 +1971,17 @@ summary.bayesCureModel <- function(object, burn = NULL, gamma_mix = TRUE, K_gamm
 		for(tau in tau_values){
 			i <- i + 1
 			for(j in 1:nLevels){
-			p_cured_given_tau_values[i, iter,j] <- exp(log_p0(g = g, 
-							b = b,
-							x = covariate_levels[j,]) - 
-						log_S_p(g = g, 
-							lambda = lambda,
+			testam <- log_S_p(g = g, lambda = lambda,
 							log_F = log_F[i], 
 							b = b,
 							x = covariate_levels[j,]
 							)
+
+			S_p_values[i,iter,j] <- exp(testam)
+			p_cured_given_tau_values[i, iter,j] <- exp(log_p0(g = g, 
+							b = b,
+							x = covariate_levels[j,]) - 
+						testam
 						)
 			}
 			#p_cured_given_tau[i] <- p_cured_given_tau[i] +  p_cured_given_tau_values[i, iter]           				
@@ -1920,6 +1989,7 @@ summary.bayesCureModel <- function(object, burn = NULL, gamma_mix = TRUE, K_gamm
 		if(iter == map_index){
 			for(j in 1:nLevels){
 				p_cured_given_tau[,j] <- p_cured_given_tau_values[,iter,j]
+				S_p[,j] <- S_p_values[,iter,j]
 			}
 		}
 	}
@@ -1981,11 +2051,11 @@ cat('                           MCMC summary','\n')
 	print(myDF)
 	cat('\n')
 
-cat(paste0('Among ', length(latent_cured_status) ,' cencored observations, I found ', sum(cured_at_given_FDR == 'cured'), ' cured subjects (FDR = ', fdr, ').'))
+cat(paste0('Among ', length(latent_cured_status) ,' censored observations, I found ', sum(cured_at_given_FDR == 'cured'), ' cured subjects (FDR = ', fdr, ').'))
 	cat('\n')
 	}
 	if(is.null(covariate_levels)==FALSE){
-		p_cured_output <- vector('list', length = 6)
+		p_cured_output <- vector('list', length = 8)
 		p_cured_output[[1]] <- 	p_cured_given_tau_values
 		p_cured_output[[2]] <- p_cured_given_tau
 		p_cured_output[[3]] <- tau_values
@@ -1995,7 +2065,9 @@ cat(paste0('Among ', length(latent_cured_status) ,' cencored observations, I fou
 			colnames(object$input_data_and_model_prior$X) <- paste0('x_', 1:nCov)
 		}
 		p_cured_output[[6]] <- colnames(object$input_data_and_model_prior$X)
-		names(p_cured_output) <- c('mcmc', 'map', 'tau_values', 'covariate_levels', 'index_of_main_mode', 'Xnames')
+		p_cured_output[[7]] <- 	S_p_values
+		p_cured_output[[8]] <- S_p
+		names(p_cured_output) <- c('mcmc', 'map', 'tau_values', 'covariate_levels', 'index_of_main_mode', 'Xnames', 'mcmc_Sp', 'map_Sp')
 		results[[5]] <- p_cured_output
 	}
 	names(results) <- c('map_estimate', 'highest_density_indervals', 'latent_cured_status', 'cured_at_given_FDR', 'p_cured_output', 'index_of_main_mode')
@@ -2007,7 +2079,7 @@ cat(paste0('Among ', length(latent_cured_status) ,' cencored observations, I fou
 
 #' @export
 
-plot.bayesCureModel <- function(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, K_gamma = 5, plot_graphs = TRUE, bw = 'nrd0', what = NULL, p_cured_output = NULL, index_of_main_mode = NULL, ...){
+plot.bayesCureModel <- function(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, K_gamma = 5, plot_graphs = TRUE, bw = 'nrd0', what = NULL, p_cured_output = NULL, index_of_main_mode = NULL, draw_legend = TRUE, ...){
 	retained_mcmc = x$mcmc_sample
 	map_estimate = x$map_estimate
 #	if(plot_graphs){
@@ -2124,9 +2196,11 @@ plot.bayesCureModel <- function(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, 
 				)
 			}
 		}
+		if(draw_legend){
 		lText <- paste0(apply(round(p_cured_output$covariate_levels,2), 1, function(y)paste0(y, collapse=', ')))
 		legend('bottomright', col = 2:(nLevels+1), lty = 1, 
 			title = paste0('covariate levels\n',paste0(p_cured_output$Xnames, collapse=', ')), lText)
+		}
 #		p_cured_given_tau_low <- p_cured_given_tau_up <- numeric(length(p_cured_output$tau_values))
 #		for(j in 1:nLevels){
 #		for(k in 1:length(p_cured_output$tau_values)){
@@ -2139,6 +2213,59 @@ plot.bayesCureModel <- function(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, 
 #		}
 
 	
+	}else{
+	if(what[1] == 'survival'){
+		plot(
+			p_cured_output$tau_values, 
+			p_cured_output$map_Sp[,1], 
+			xlab = "t", 
+			ylab = bquote(hat("S")["P"]*"(t)"), 
+			type = 'n', 
+			...
+		)
+		xti <- par('xaxp')
+		rect(par("usr")[1],par("usr")[3],par("usr")[2],par("usr")[4],col = "gray90")
+		for(j in (0:10)/10){
+		abline (h = j, lwd = 2, col = 'white')
+		}
+		xxseq <- seq(xti[1], xti[2], by = xti[3])
+		for(j in xxseq){
+			abline (v = j, lwd = 2, col = 'white')
+		}
+		nLevels <- dim(p_cured_output$covariate_levels)[1]
+		for(j in 1:nLevels){
+			points(
+				p_cured_output$tau_values, 
+				p_cured_output$map_Sp[,j],
+				type = 'l', 
+				col = j + 1,
+				...
+			)
+			
+			points(p_cured_output$tau_values, p_cured_output$map_Sp[,j], type = 'l', lwd = 2, col = j+1)
+			if(is.null(alpha) == FALSE){
+			p_cured_given_tau_low <- p_cured_given_tau_up <- numeric(length(p_cured_output$tau_values))
+			for(k in 1:length(p_cured_output$tau_values)){
+				p_cured_given_tau_low[k] <- hdi(p_cured_output$mcmc_Sp[k,p_cured_output$index_of_main_mode,j], credMass = 1 - alpha)[1]
+				p_cured_given_tau_up[k] <- hdi(p_cured_output$mcmc_Sp[k,p_cured_output$index_of_main_mode,j], credMass = 1 - alpha)[2]        
+			}
+			Ti <- length(p_cured_output$tau_values)
+			rgb.val <- col2rgb(j+1)/255
+			polygon(x = c(p_cured_output$tau_values, p_cured_output$tau_values[Ti:1]), 
+				y = c(p_cured_given_tau_low, p_cured_given_tau_up[Ti:1]), 
+				col= rgb(rgb.val[1], rgb.val[2], rgb.val[3],0.1), 
+#				col = j+1,
+#				density = 10,
+#				angle = 90*(j+1),
+				border = NA
+				)
+			}
+		}
+		if(draw_legend){
+		lText <- paste0(apply(round(p_cured_output$covariate_levels,2), 1, function(y)paste0(y, collapse=', ')))
+		legend('bottomright', col = 2:(nLevels+1), lty = 1, 
+			title = paste0('covariate levels\n',paste0(p_cured_output$Xnames, collapse=', ')), lText)
+		}
 	}else{
 	for(i in what){
 #		pdf(file = paste0("../img/recidivism_new_data_parameter_",i,".pdf"), width = 12, height = 3)
@@ -2231,6 +2358,7 @@ plot.bayesCureModel <- function(x, burn = NULL, alpha = 0.05, gamma_mix = TRUE, 
 	return(hdis)	
 	}
 	}
+	}
 
 }
 
@@ -2241,6 +2369,7 @@ print.bayesCureModel <- function(x, ...){
                 cat(paste0("* Run information:"),"\n")
                 cat(paste0("      Fitted model: `", x$input_data_and_model_prior$promotion_time$distribution,"'\n"))
                 cat(paste0("      BIC: ", round(x$BIC, 3),"\n"))
+                cat(paste0("      AIC: ", round(x$AIC, 3),"\n"))                
                 cat(paste0("      MCMC cycles: ", dim(x$mcmc_sample)[1],"\n"))
                 cat(paste0("      Number of parallel heated chains: ", 1+length(x$swap_accept_rate),"\n"))
                 ss <- summary(x$swap_accept_rate)
