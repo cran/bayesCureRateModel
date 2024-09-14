@@ -67,7 +67,7 @@ Panagiotis Papastamoulis and Fotios S. Milienos
 Maintainer: \packageMaintainer{bayesCureRateModel}
 }
 \references{
-Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for event history data. arXiv:2310.06926 
+Papastamoulis and Milienos (2024). Bayesian inference and cure rate modeling for event history data. TEST doi: 10.1007/s11749-024-00942-w.
 }
 \keyword{ package }
 \seealso{
@@ -77,13 +77,19 @@ Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for
 # TOY EXAMPLE (very small numbers... only for CRAN check purposes)
 # simulate toy data 
 	set.seed(10)
-	n = 4
-	stat = rbinom(n, size = 1, prob = 0.5)
-	x <- cbind(1, matrix(rnorm(n), n, 1))
-	y <- rexp(n)
+        n = 4
+        # censoring indicators
+        stat = rbinom(n, size = 1, prob = 0.5)
+        # covariates
+        x <- matrix(rnorm(2*n), n, 2)
+        # observed response variable 
+        y <- rexp(n)
+#	define a data frame with the response and the covariates        
+        my_data_frame <- data.frame(y, stat, x1 = x[,1], x2 = x[,2])
 # run a weibull model with default prior setup
 # considering 2 heated chains 
-	fit1 <- cure_rate_MC3(y = y, X = x, Censoring_status = stat, 
+	fit1 <- cure_rate_MC3(survival::Surv(y, stat) ~ x1 + x2, 
+		data = my_data_frame, 
 		promotion_time = list(distribution = 'weibull'),
 		nChains = 2, 
 		nCores = 1, 
@@ -100,7 +106,7 @@ Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for
 	
 \donttest{
 # run a Gamma mixture model with K = 2 components and default prior setup
-	fit2 <- cure_rate_MC3(y = y, X = x, Censoring_status = stat, 
+	fit2 <- cure_rate_MC3(survival::Surv(y, stat) ~ x1 + x2, data = my_data_frame, 
 		promotion_time = list(
 			distribution = 'gamma_mixture',
 		        K = 2),

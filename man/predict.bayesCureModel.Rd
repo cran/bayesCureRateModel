@@ -1,50 +1,39 @@
-\name{summary.bayesCureModel}
-\alias{summary.bayesCureModel}
+\name{predict.bayesCureModel}
+\alias{predict.bayesCureModel}
 \title{
-Summary method.
+Predict method.
 }
 \description{
-This function produces all summaries after fitting a cure rate model. 
+Returns MAP estimates of the survival function and the conditional cured probability for a given set of covariates. 
 }
 \usage{
-\method{summary}{bayesCureModel}(object, burn = NULL, gamma_mix = TRUE, 
-	K_gamma = 3,  K_max = 3, fdr = 0.1, covariate_levels = NULL, 
-	yRange = NULL, alpha = 0.1, quantiles = c(0.05, 0.5, 0.95), 
-	verbose = TRUE, ...)
+\method{predict}{bayesCureModel}(object, newdata, tau_values = NULL, burn = NULL, 
+	K_max = 3, alpha = 0.1, nDigits = 3, verbose = TRUE, ...)
 }
 \arguments{
   \item{object}{
 An object of class \code{bayesCureModel}
 }
-  \item{burn}{
+\item{newdata}{
+A \code{data.frame} with new data for the covariates. The column names as well as the class of each column (variable) should match with the input data. 
+}
+\item{tau_values}{
+A vector of values for the response variable (time) for returning predictions for each row in the  \code{newdata}. 
+}
+\item{burn}{
 Positive integer corresponding to the number of mcmc iterations to discard as burn-in period
 }
-  \item{gamma_mix}{
-Boolean. If TRUE, the density of the marginal posterior distribution of the \eqn{\gamma} parameter is estimated from the sampled MCMC values by fitting a normal mixture  model.
+\item{K_max}{
+ Maximum number of components in order to cluster the (univariate) values of the joint posterior distribution across the MCMC run. Used to identify the main mode of the posterior distribution. 
 }
-  \item{K_gamma}{
-Used only when \code{gamma_mix = TRUE} and corresponds to the number of normal mixture components used to estimate the marginal posterior density of the \eqn{\gamma} parameter. 
+\item{alpha}{
+Scalar between 0 and 1 corresponding to 1 - confidencel level for computing Highest Density Intervals. If set to NULL, the confidence intervals are not computed.
 }
-  \item{K_max}{
- Maximum number of components in order to cluster the (univariate) values of the joint posterior distribution across the MCMC run. Used to identify the main mode of the posterior distribution. See details. 
+\item{nDigits}{
+A positive integer for printing the output, after rounding to the corresponding number of digits. Default: \code{nDigits = 3}.
 }
-  \item{fdr}{
-	The target value for controlling the False Discovery Rate when classifying subjects as cured or not. 
-}
-  \item{covariate_levels}{
-	Optional \code{data.frame} with new data for the covariates. It is only required when the user wishes to obtain a vector with the estimated posterior cured probabilities for a given combination of covariates. The column names should be exactly the same with the ones used in the input data. 
-}
-  \item{yRange}{
-	Optional range (a vector of two non-negative values) for computing the sequence of posterior probabilities for the given values in \code{covariate_levels}. 
-}
-  \item{alpha}{
-	Scalar between 0 and 1 corresponding to 1 - confidencel level for computing Highest Density Intervals. If set to NULL, the confidence intervals are not computed.
-}
-  \item{quantiles}{
-	A vector of quantiles to evaluate for each variable.
-}
-  \item{verbose}{
-	Boolean: if TRUE the function prints the summary.
+\item{verbose}{
+Boolean. If set to TRUE (default) the function prints a summary of the predictions. 
 }
 \item{...}{
         ignored.
@@ -98,13 +87,15 @@ Panagiotis Papastamoulis
         my_data_frame <- data.frame(y, stat, x1 = x[,1], x2 = x[,2])
 # run a weibull model with default prior setup
 # considering 2 heated chains 
-	fit1 <- cure_rate_MC3(survival::Surv(y, stat) ~ x1 + x2, 
-		data = my_data_frame, 
+	fit1 <- cure_rate_MC3(survival::Surv(y, stat) ~ x1 + x2, data = my_data_frame, 
 		promotion_time = list(distribution = 'exponential'),
 		nChains = 2, 
 		nCores = 1, 
 		mcmc_cycles = 3, sweep=2)
-	mySummary <- summary(fit1, burn = 0)
+	newdata <- data.frame(x1 = c(0.2,-1), x2 = c(-1,0))
+	# return predicted values at tau = c(0.5, 1)
+	my_prediction <- predict(fit1, newdata = newdata, 
+		burn = 0, tau_values = c(0.5, 1))
 
 }
 

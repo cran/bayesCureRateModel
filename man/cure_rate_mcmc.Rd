@@ -13,7 +13,7 @@ cure_rate_mcmc(y, X, Censoring_status, m, alpha = 1, mu_g = 1, s2_g = 1,
 	prop_scale = c(0.2, 0.03)), mu_b = NULL, Sigma = NULL, g_prop_sd = 0.045, 
 	lambda_prop_scale = 0.03, b_prop_sd = NULL, initialValues = NULL, 
 	plot = FALSE, verbose = FALSE, tau_mala = 1.5e-05, mala = 0.15, 
-	single_MH_in_f = 0.5)
+	single_MH_in_f = 0.5, c_under = 1e-9)
 }
 \arguments{
   \item{y}{
@@ -79,6 +79,9 @@ Propability of attempting a MALA step. Otherwise, a simple MH move is attempted.
   \item{single_MH_in_f}{
 Probability of attempting a single-site MH move in the basic Metropolis-Hastings step. Otherwise, a joint update is attempted.
 }
+  \item{c_under}{
+A small positive number (much smaller than 1) which is used as a threshold in the CDF of the promotion time for avoiding underflows in the computation of the log-likelihood function. Default value: 1e-9.
+}
 }
 \value{
 A list containing the following entries
@@ -89,12 +92,12 @@ A list containing the following entries
 \item{log_prior_density}{Logarithm of the prior density per MCMC iteration.}
 }
 \note{
-In the case where the promotion time distribution is a Gamma mixture model, the mixing proportions \eqn{w_1,\ldots,w_K} are reparameterized according to the following transformation
+In the case where the promotion time distribution is a mixture model, the mixing proportions \eqn{w_1,\ldots,w_K} are reparameterized according to the following transformation
 \deqn{w_j = \frac{\rho_j}{\sum_{i=1}^{K}\rho_i}, j = 1,\ldots,K}
 where \eqn{\rho_i > 0} for \eqn{i=1,\ldots,K-1} and \eqn{\rho_{K}=1}. The sampler returns the parameters \eqn{\rho_1,\ldots,\rho_{K-1}}, not the mixing proportions. 
 }
 \references{
-Papastamoulis and Milienos (2023). Bayesian inference and cure rate modeling for event history data. arXiv:2310.06926 
+Papastamoulis and Milienos (2024). Bayesian inference and cure rate modeling for event history data. TEST doi: 10.1007/s11749-024-00942-w.
 }
 \author{
 Panagiotis Papastamoulis
