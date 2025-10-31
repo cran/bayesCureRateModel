@@ -1,8 +1,8 @@
-d529f9f015be76a1f04c30847e5884e5 *DESCRIPTION
+86a08191a205f7f8308807cc2137b9db *DESCRIPTION
 5db6c4fbc1bddc1f0db34a76d0b4bb5a *NAMESPACE
 21e967f0d302ac33cb6005fd353aa3bd *R/RcppExports.R
-8bf6f69c62649bb88137c00bab5ce4e3 *R/bayesian_cure_rate_model.R
-fbd275eacb01d98520555d785259786f *build/partial.rdb
+0146a2d473a46c31ae215556e9655df6 *R/bayesian_cure_rate_model.R
+d210aee1b179ed5f628faa573ad2dc90 *build/partial.rdb
 1f58339cd49df7952212530df5eaa26a *data/marriage_dataset.RData
 19782b645cbb28c948589752c57a8f19 *data/sim_mix_data.RData
 03e71921bc8ef259c9cf529a986060e0 *inst/CITATION
