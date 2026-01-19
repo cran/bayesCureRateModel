@@ -1,12 +1,12 @@
-86a08191a205f7f8308807cc2137b9db *DESCRIPTION
+f54321b83f12d5bf794e1adad0998cf2 *DESCRIPTION
 5db6c4fbc1bddc1f0db34a76d0b4bb5a *NAMESPACE
 21e967f0d302ac33cb6005fd353aa3bd *R/RcppExports.R
 0146a2d473a46c31ae215556e9655df6 *R/bayesian_cure_rate_model.R
-d210aee1b179ed5f628faa573ad2dc90 *build/partial.rdb
+47da60673b62bffbd3cea2bc6211422e *build/partial.rdb
 1f58339cd49df7952212530df5eaa26a *data/marriage_dataset.RData
 19782b645cbb28c948589752c57a8f19 *data/sim_mix_data.RData
-03e71921bc8ef259c9cf529a986060e0 *inst/CITATION
-10799df1417f1c1559b0f39b3ec19698 *man/Surv.Rd
+e7e2c00894f7e361f1a70c739b666560 *inst/CITATION
+86839370d913081d7837b071b74f9158 *man/Surv.Rd
 074382903eecf2a3fc5ecaddba6d4963 *man/bayesCureRateModel-package.Rd
 4a8ee8d9f3760d3f1a996f185fcc0f39 *man/complete_log_likelihood_general.Rd
 927a54c1d38af6223ac197534f2c140d *man/compute_fdr_tpr.Rd
